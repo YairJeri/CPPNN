@@ -1,0 +1,57 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) buffer Input_cache {
+    float input_data[]; // [batch_size x input_size]
+};
+
+layout(set = 0, binding = 1) buffer Delta {
+    float delta[];      // [batch_size x output_size]
+};
+
+layout(set = 0, binding = 2) buffer Weights {
+    float weights[];    // [input_size x output_size]
+};
+
+layout(set = 0, binding = 3) buffer GradW {
+    float grad_w[];     // [input_size x output_size]
+};
+
+layout(set = 0, binding = 4) buffer GradB {
+    float grad_b[];     // [output_size]
+};
+
+layout(push_constant) uniform PushConstants {
+    uint input_size;
+    uint output_size;
+    uint batch_size;
+};
+
+void main() {
+    uint in_idx = gl_GlobalInvocationID.x;
+    uint out_idx = gl_GlobalInvocationID.y;
+
+    if (in_idx >= input_size || out_idx >= output_size)
+        return;
+
+    float sum_grad_w = 0.0;
+
+    // Calcular grad_w[in_idx, out_idx]
+    for (uint b = 0; b < batch_size; ++b) {
+        float inp = input_data[b * input_size + in_idx];
+        float del = delta[b * output_size + out_idx];
+        sum_grad_w += inp * del;
+    }
+
+    grad_w[in_idx * output_size + out_idx] = sum_grad_w / float(batch_size);
+
+    // Solo el hilo con in_idx == 0 calcula grad_b[out_idx]
+    if (in_idx == 0) {
+        float sum_grad_b = 0.0;
+        for (uint b = 0; b < batch_size; ++b) {
+            sum_grad_b += delta[b * output_size + out_idx];
+        }
+        grad_b[out_idx] = sum_grad_b / float(batch_size);
+    }
+}

@@ -1,0 +1,12 @@
+#version 450
+
+layout(local_size_x = 1) in;
+
+layout(set = 0, binding = 0) buffer Data {
+    float data[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    data[idx] = max(0.0f, data[idx]);
+}

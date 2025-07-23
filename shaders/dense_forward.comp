@@ -1,0 +1,46 @@
+#version 450
+
+layout(local_size_x = 1) in;
+
+layout(set = 0, binding = 0) buffer Input {
+    float data[];
+};
+
+layout(set = 0, binding = 1) buffer Output {
+    float output[];
+};
+
+layout(set = 0, binding = 2) buffer Weights {
+    float weights[];
+};
+
+layout(set = 0, binding = 3) buffer Biases {
+    float biases[];
+};
+
+push_constant struct PushConstants {
+    uint input_size;
+    uint output_size;
+    uint batch_size;
+};
+
+void main() {
+    uint out_idx = gl_GlobalInvocationID.x;
+
+    uint total_outputs = output_size * batch_size;
+
+    if (out_idx >= total_outputs)
+        return;
+    
+    uint batch_idx = global_idx / output_size;
+    uint out_idx   = global_idx % output_size;
+
+    float sum = 0.0f;
+    for (uint in_idx = 0; in_idx < input_size; ++in_idx) {
+        float input_val = data[batch_idx * input_size + in_idx];
+        float weight_val = weights[out_idx * input_size + in_idx];
+        sum += input_val * weight_val;
+    }
+
+    output[batch_idx * output_size + out_idx] = sum + biases[out_idx];
+}

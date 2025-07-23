@@ -1,0 +1,39 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 1) buffer Delta {
+    float delta[];         // [batch_size x output_size]
+};
+
+layout(set = 0, binding = 2) buffer Weights {
+    float weights[];       // [input_size x output_size]
+};
+
+layout(set = 0, binding = 5) buffer GradInput {
+    float grad_input[];    // [batch_size x input_size]
+};
+
+layout(push_constant) uniform PushConstants {
+    uint input_size;
+    uint output_size;
+    uint batch_size;
+};
+
+void main() {
+    uint batch_idx = gl_GlobalInvocationID.x;
+    uint in_idx    = gl_GlobalInvocationID.y;
+
+    if (batch_idx >= batch_size || in_idx >= input_size)
+        return;
+
+    float sum = 0.0;
+
+    for (uint o = 0; o < output_size; ++o) {
+        float d = delta[batch_idx * output_size + o];
+        float w = weights[in_idx * output_size + o];
+        sum += d * w;
+    }
+
+    grad_input[batch_idx * input_size + in_idx] = sum;
+}
