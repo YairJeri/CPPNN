@@ -10,15 +10,11 @@ layout(set = 0, binding = 1) buffer Delta {
     float delta[];      // [batch_size x output_size]
 };
 
-layout(set = 0, binding = 2) buffer Weights {
-    float weights[];    // [input_size x output_size]
-};
-
-layout(set = 0, binding = 3) buffer GradW {
+layout(set = 0, binding = 2) buffer GradW {
     float grad_w[];     // [input_size x output_size]
 };
 
-layout(set = 0, binding = 4) buffer GradB {
+layout(set = 0, binding = 3) buffer GradB {
     float grad_b[];     // [output_size]
 };
 
