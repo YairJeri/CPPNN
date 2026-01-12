@@ -1,0 +1,11 @@
+output
+
+.vscode/
+
+build/
+
+*.spv
+
+# Dataset binaries (large files)
+datasets/mnist/*.idx*-ubyte
+datasets/mnist/*.zip
