@@ -534,4 +534,3 @@ namespace NN
         }
     };
 }
-// Temporary gradient accumulation adjustment
