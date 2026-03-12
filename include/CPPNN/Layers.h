@@ -534,3 +534,4 @@ namespace NN
         }
     };
 }
+// Updated gradient calculation notes
