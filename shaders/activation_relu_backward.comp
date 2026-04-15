@@ -1,0 +1,22 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Data {
+    float data[];
+};
+
+layout(set = 0, binding = 1) buffer Cache {
+    float cache[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint count;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= count)
+        return;
+    data[idx] *= (cache[idx] > 0.0f) ? 1.0f : 0.0f;
+}

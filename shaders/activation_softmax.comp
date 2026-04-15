@@ -1,0 +1,40 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Data {
+    float data[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint batch_size;
+    uint num_classes;
+};
+
+void main() {
+    uint batch_idx = gl_GlobalInvocationID.x;
+    if (batch_idx >= batch_size)
+        return;
+
+    uint offset = batch_idx * num_classes;
+
+    // 1. Max para estabilidad numérica
+    float max_val = data[offset];
+    for (uint i = 1; i < num_classes; ++i) {
+        max_val = max(max_val, data[offset + i]);
+    }
+
+    // 2. Exponencial y Suma
+    float sum = 0.0f;
+    for (uint i = 0; i < num_classes; ++i) {
+        float e = exp(data[offset + i] - max_val);
+        data[offset + i] = e;
+        sum += e;
+    }
+
+    // 3. Normalizar
+    for (uint i = 0; i < num_classes; ++i) {
+        data[offset + i] /= sum;
+    }
+}
+

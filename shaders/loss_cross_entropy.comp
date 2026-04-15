@@ -1,0 +1,30 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Output {
+    float output_probs[]; // [batch_size x num_classes]
+};
+
+layout(set = 0, binding = 1) buffer Target {
+    float target_onehot[]; // [batch_size x num_classes]
+};
+
+layout(set = 0, binding = 2) buffer Delta {
+    float delta[]; // [batch_size x num_classes]
+};
+
+layout(push_constant) uniform PushConstants {
+    uint total_elements;
+    uint batch_size;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= total_elements)
+        return;
+
+    // delta = (output - target) / batch_size
+    delta[idx] = (output_probs[idx] - target_onehot[idx]) / float(batch_size);
+}
+
