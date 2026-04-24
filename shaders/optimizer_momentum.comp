@@ -1,0 +1,32 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Params {
+    float params[];
+};
+
+layout(set = 0, binding = 1) buffer Grads {
+    float grads[];
+};
+
+layout(set = 0, binding = 2) buffer Velocity {
+    float v[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint count;
+    float lr;
+    float momentum;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= count)
+        return;
+
+    float new_v = momentum * v[idx] + lr * grads[idx];
+    v[idx] = new_v;
+    params[idx] -= new_v;
+}
+

@@ -1,0 +1,51 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Params {
+    float params[];
+};
+
+layout(set = 0, binding = 1) buffer Grads {
+    float grads[];
+};
+
+layout(set = 0, binding = 2) buffer MomentM {
+    float m[];
+};
+
+layout(set = 0, binding = 3) buffer MomentV {
+    float v[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint count;
+    float lr;
+    float beta1;
+    float beta2;
+    float eps;
+    float beta1_pow; // beta1^t
+    float beta2_pow; // beta2^t
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= count)
+        return;
+
+    float g = grads[idx];
+    float new_m = beta1 * m[idx] + (1.0 - beta1) * g;
+    float new_v = beta2 * v[idx] + (1.0 - beta2) * (g * g);
+
+    m[idx] = new_m;
+    v[idx] = new_v;
+
+    float one_minus_b1 = max(1.0 - beta1_pow, 1e-7);
+    float one_minus_b2 = max(1.0 - beta2_pow, 1e-7);
+
+    float m_hat = new_m / one_minus_b1;
+    float v_hat = new_v / one_minus_b2;
+
+    params[idx] -= lr * m_hat / (sqrt(v_hat) + eps);
+}
+

@@ -1,0 +1,25 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer Params {
+    float params[];
+};
+
+layout(set = 0, binding = 1) buffer Grads {
+    float grads[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint count;
+    float learning_rate;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= count)
+        return;
+
+    params[idx] -= learning_rate * grads[idx];
+}
+
