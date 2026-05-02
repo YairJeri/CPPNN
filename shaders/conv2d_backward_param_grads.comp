@@ -1,0 +1,83 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) buffer InCache {
+    float in_data[]; // [batch_size, in_c, in_h, in_w]
+};
+
+layout(set = 0, binding = 1) buffer DeltaOut {
+    float delta_out[]; // [batch_size, out_c, out_h, out_w]
+};
+
+layout(set = 0, binding = 2) buffer GradW {
+    float grad_w[]; // [out_c, in_c, k_size, k_size]
+};
+
+layout(set = 0, binding = 3) buffer GradB {
+    float grad_b[]; // [out_c]
+};
+
+layout(push_constant) uniform PushConstants {
+    uint batch_size;
+    uint in_c;
+    uint in_h;
+    uint in_w;
+    uint out_c;
+    uint out_h;
+    uint out_w;
+    uint k_size;
+    uint stride;
+    uint pad;
+};
+
+void main() {
+    uint kw_kh = gl_GlobalInvocationID.x; // [0, k_size * k_size)
+    uint ic_oc = gl_GlobalInvocationID.y; // [0, in_c * out_c)
+
+    if (kw_kh >= k_size * k_size || ic_oc >= in_c * out_c)
+        return;
+
+    uint kh = kw_kh / k_size;
+    uint kw = kw_kh % k_size;
+
+    uint oc = ic_oc / in_c;
+    uint ic = ic_oc % in_c;
+
+    float sum_gw = 0.0;
+
+    for (uint b = 0; b < batch_size; ++b) {
+        for (uint oh = 0; oh < out_h; ++oh) {
+            int iy = int(oh * stride) - int(pad) + int(kh);
+            if (iy < 0 || iy >= int(in_h)) continue;
+
+            for (uint ow = 0; ow < out_w; ++ow) {
+                int ix = int(ow * stride) - int(pad) + int(kw);
+                if (ix < 0 || ix >= int(in_w)) continue;
+
+                uint in_idx = ((b * in_c + ic) * in_h + uint(iy)) * in_w + uint(ix);
+                uint d_idx  = ((b * out_c + oc) * out_h + oh) * out_w + ow;
+
+                sum_gw += in_data[in_idx] * delta_out[d_idx];
+            }
+        }
+    }
+
+    uint w_idx = ((oc * in_c + ic) * k_size + kh) * k_size + kw;
+    grad_w[w_idx] = sum_gw;
+
+    // Calcular gradiente del bias una sola vez
+    if (kw_kh == 0 && ic == 0) {
+        float sum_gb = 0.0;
+        for (uint b = 0; b < batch_size; ++b) {
+            for (uint oh = 0; oh < out_h; ++oh) {
+                for (uint ow = 0; ow < out_w; ++ow) {
+                    uint d_idx = ((b * out_c + oc) * out_h + oh) * out_w + ow;
+                    sum_gb += delta_out[d_idx];
+                }
+            }
+        }
+        grad_b[oc] = sum_gb;
+    }
+}
+

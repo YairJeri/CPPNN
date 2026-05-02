@@ -1,0 +1,66 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) buffer InData {
+    float in_data[]; // [batch_size, c, in_h, in_w]
+};
+
+layout(set = 0, binding = 1) buffer OutData {
+    float out_data[]; // [batch_size, c, out_h, out_w]
+};
+
+layout(set = 0, binding = 2) buffer MaskIndex {
+    uint mask_idx[]; // guarda el índice plano de entrada que fue el maximo
+};
+
+layout(push_constant) uniform PushConstants {
+    uint batch_size;
+    uint c;
+    uint in_h;
+    uint in_w;
+    uint out_h;
+    uint out_w;
+    uint pool_size;
+    uint stride;
+};
+
+void main() {
+    uint ow = gl_GlobalInvocationID.x;
+    uint oh = gl_GlobalInvocationID.y;
+    uint c_b = gl_GlobalInvocationID.z;
+
+    uint channel = c_b % c;
+    uint b       = c_b / c;
+
+    if (ow >= out_w || oh >= out_h || b >= batch_size)
+        return;
+
+    uint in_y_start = oh * stride;
+    uint in_x_start = ow * stride;
+
+    float max_val = -1e38;
+    uint best_idx = 0;
+
+    for (uint py = 0; py < pool_size; ++py) {
+        uint iy = in_y_start + py;
+        if (iy >= in_h) continue;
+
+        for (uint px = 0; px < pool_size; ++px) {
+            uint ix = in_x_start + px;
+            if (ix >= in_w) continue;
+
+            uint in_idx = ((b * c + channel) * in_h + iy) * in_w + ix;
+            float val = in_data[in_idx];
+            if (val > max_val) {
+                max_val = val;
+                best_idx = in_idx;
+            }
+        }
+    }
+
+    uint out_idx = ((b * c + channel) * out_h + oh) * out_w + ow;
+    out_data[out_idx] = max_val;
+    mask_idx[out_idx] = best_idx;
+}
+

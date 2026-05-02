@@ -1,0 +1,67 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) buffer DeltaOut {
+    float delta_out[]; // [batch_size, out_c, out_h, out_w]
+};
+
+layout(set = 0, binding = 1) buffer Weights {
+    float weights[];   // [out_c, in_c, k_size, k_size]
+};
+
+layout(set = 0, binding = 2) buffer GradIn {
+    float grad_in[];   // [batch_size, in_c, in_h, in_w]
+};
+
+layout(push_constant) uniform PushConstants {
+    uint batch_size;
+    uint in_c;
+    uint in_h;
+    uint in_w;
+    uint out_c;
+    uint out_h;
+    uint out_w;
+    uint k_size;
+    uint stride;
+    uint pad;
+};
+
+void main() {
+    uint iw = gl_GlobalInvocationID.x; // [0, in_w)
+    uint ih = gl_GlobalInvocationID.y; // [0, in_h)
+    uint ic_b = gl_GlobalInvocationID.z; // batch_idx * in_c + ic
+
+    uint ic = ic_b % in_c;
+    uint b  = ic_b / in_c;
+
+    if (iw >= in_w || ih >= in_h || b >= batch_size)
+        return;
+
+    float sum = 0.0;
+
+    for (uint oc = 0; oc < out_c; ++oc) {
+        for (uint kh = 0; kh < k_size; ++kh) {
+            int oh = int(ih + pad - kh);
+            if (oh < 0 || (oh % int(stride)) != 0) continue;
+            oh /= int(stride);
+            if (oh >= int(out_h)) continue;
+
+            for (uint kw = 0; kw < k_size; ++kw) {
+                int ow = int(iw + pad - kw);
+                if (ow < 0 || (ow % int(stride)) != 0) continue;
+                ow /= int(stride);
+                if (ow >= int(out_w)) continue;
+
+                uint d_idx = ((b * out_c + oc) * out_h + uint(oh)) * out_w + uint(ow);
+                uint w_idx = ((oc * in_c + ic) * k_size + kh) * k_size + kw;
+
+                sum += delta_out[d_idx] * weights[w_idx];
+            }
+        }
+    }
+
+    uint in_idx = ((b * in_c + ic) * in_h + ih) * in_w + iw;
+    grad_in[in_idx] = sum;
+}
+

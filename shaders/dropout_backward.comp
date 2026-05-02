@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer DeltaIn {
+    float delta_in[]; // Gradiente que viene de la siguiente capa
+};
+
+layout(set = 0, binding = 1) buffer MaskIn {
+    float mask_in[];  // Máscara guardada en forward
+};
+
+layout(set = 0, binding = 2) buffer DeltaOut {
+    float delta_out[]; // Gradiente que va a la capa anterior
+};
+
+layout(push_constant) uniform PushConstants {
+    uint count;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= count)
+        return;
+
+    delta_out[idx] = delta_in[idx] * mask_in[idx];
+}
+

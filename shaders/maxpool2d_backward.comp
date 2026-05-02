@@ -1,0 +1,45 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) buffer DeltaOut {
+    float delta_out[]; // [batch_size, c, out_h, out_w]
+};
+
+layout(set = 0, binding = 1) buffer MaskIndex {
+    uint mask_idx[];   // Índice plano del elemento maximo
+};
+
+layout(set = 0, binding = 2) buffer GradIn {
+    float grad_in[];   // [batch_size, c, in_h, in_w]
+};
+
+layout(push_constant) uniform PushConstants {
+    uint batch_size;
+    uint c;
+    uint out_h;
+    uint out_w;
+    uint total_in_elements;
+};
+
+void main() {
+    uint ow = gl_GlobalInvocationID.x;
+    uint oh = gl_GlobalInvocationID.y;
+    uint c_b = gl_GlobalInvocationID.z;
+
+    uint channel = c_b % c;
+    uint b       = c_b / c;
+
+    if (ow >= out_w || oh >= out_h || b >= batch_size)
+        return;
+
+    uint out_idx = ((b * c + channel) * out_h + oh) * out_w + ow;
+    float grad = delta_out[out_idx];
+    uint target_in_idx = mask_idx[out_idx];
+
+    if (target_in_idx < total_in_elements) {
+        // En MaxPool con stride >= pool_size los maximos no se solapan
+        grad_in[target_in_idx] = grad;
+    }
+}
+

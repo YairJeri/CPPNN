@@ -1,0 +1,25 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer GradOut {
+    float grad_out[];
+};
+
+layout(set = 0, binding = 1) buffer GradIn {
+    float grad_in[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint count;
+    float scale;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= count)
+        return;
+
+    grad_in[idx] = grad_out[idx] * scale;
+}
+

@@ -1,0 +1,56 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) buffer DataIn {
+    float data_in[];
+};
+
+layout(set = 0, binding = 1) buffer DataOut {
+    float data_out[];
+};
+
+layout(set = 0, binding = 2) buffer MaskOut {
+    float mask_out[]; // Guarda 0.0 o escala para el backward pass
+};
+
+layout(push_constant) uniform PushConstants {
+    uint count;
+    float rate;  // Probabilidad de dropout (ej. 0.2)
+    uint seed;   // Semilla pseudoaleatoria por batch/paso
+};
+
+// Generador pseudoaleatorio hash rápido (PCG-like)
+uint hash(uint x) {
+    x ^= x >> 16;
+    x *= 0x7feb352dU;
+    x ^= x >> 15;
+    x *= 0x846ca68bU;
+    x ^= x >> 16;
+    return x;
+}
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= count)
+        return;
+
+    if (rate <= 0.0f) {
+        data_out[idx] = data_in[idx];
+        mask_out[idx] = 1.0f;
+        return;
+    }
+
+    uint h = hash(idx + seed * 999983U);
+    float rand_val = float(h & 0x00FFFFFFU) / 16777216.0f; // [0, 1)
+
+    float scale = 1.0f / (1.0f - rate);
+    if (rand_val < rate) {
+        data_out[idx] = 0.0f;
+        mask_out[idx] = 0.0f;
+    } else {
+        data_out[idx] = data_in[idx] * scale;
+        mask_out[idx] = scale;
+    }
+}
+
