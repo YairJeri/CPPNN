@@ -1,9 +1,12 @@
-# CPPNN
+# CPPNN: C++ Neural Network & Vulkan Compute Engine
 
-A lightweight C++ neural network library implemented from scratch with CPU multithreading and initial CNN support.
+A modular deep learning engine in C++17 featuring hardware-accelerated training using Vulkan Compute shaders.
+
+## Overview
+CPPNN implements deep learning primitives and backpropagation without high-level frameworks. Computation runs on CPU (OpenMP) or directly on GPU via Vulkan compute shaders.
 
 ## Features
-- Tensor engine with 2D and 4D storage
-- Dense, Conv2D, and MaxPooling layers (CPU)
-- Adam and SGD optimizers
-- Dataset ingestion (MNIST & tabular CSV)
+- Full GPU training pipeline (forward, backward, optimizer on GPU)
+- Conv2D, MaxPooling2D, Dense, Rescaling, Dropout
+- Adam, SGDMomentum, SGD optimizers
+- Verified on MNIST dataset (~95%+ accuracy)
